@@ -1,9 +1,9 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
-    name='SqlTable',
+    name='sqltable',
     version='1.0',
-    packages=['conf'],
+    packages=find_packages(),
     url='www.not-a-site.com',
     license='None',
     author='Corey',
