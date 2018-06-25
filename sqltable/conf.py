@@ -1,3 +1,4 @@
+import os
 import yaml
 
 def parse_yaml(filename):
@@ -5,4 +6,5 @@ def parse_yaml(filename):
         res = yaml.load(yml)
     return res
 
-databases = parse_yaml('sqltable/conf/databases.yaml')
+conf = os.path.join('/Users/', os.environ.get('USER'), '.sqltable.conf')
+databases = parse_yaml(conf)
