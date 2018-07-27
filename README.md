@@ -18,7 +18,7 @@ Three main classes - Query, DDL, and Connection
 
 
 ```python
-from sqltable import Conn, Query, DDL
+from sqltable import Conn, Query, DDL, conf
 
 conn = Conn(conn=pypostgres.connect(host='127.0.0.1', database='my_db', user='test', password='password', port=3306))
 conn = Conn(x='postgres') # where x is a connection profile defined in .sqltable.conf (rename x later)
@@ -52,7 +52,7 @@ And this condition is appended to every query where `created_at` is a field in t
 It should also give peace of mind to systems administrators, DBAs, Data Engineers and the like who need to give database access to data analysts. They
 can supply a connection string to an analyst in an encrypted `.sqltable.conf` file (or better yet, in some encrypted key-value store), ensuring that the analysts can only access the database through this controlled avenue. Since the administrators can supply default global where conditions in `.sqltable.conf`, they can effectively quarantine an analyst to their sphere of responsibility without the hassle of row-level permissions (in databases that support it), or creating complicated user and group permissions. Simply share a config file with whomever you wish.
 
-Or more likely it's used by a superuser who just wants to be diligent. Keep a different `.sqltable.conf` for every report to reduce risk of human error.
+Or more likely it's used by an analyst, regardless of access level, who just wants to be diligent and save time. Keep a different `.sqltable.conf` for every report to reduce risk of human error.
 
 ### Methods
 
@@ -71,15 +71,24 @@ purch.join(cust, type='left', on='customer_id').\
 	where('purchase_date >= date_sub(now() interval 7 days)').\
 	group_by('date(purchase_date)').\
 	select('count(distinct(purch.customer_id))')
+
+sqltable.conf.set_global_where("purchase_date > '2001-01-01'")
+purch.where("transaction_method = 'cash'")
+purch.query 
+# select * from purchases where purchase_date > '2001-01-01' and transaction_method = 'cash'
 ```
 
 ## DDL
+
+Creating, editing, and deleting data must be done through a DDL object.
 
 ### Purpose
 
 ### Methods
 
 ## Conn
+
+A connection object represents a connection to a specific RDBMS instance and database. I'm not sure how I'll reconcile the differences between Postgres and MySQL database concepts, but will probably end up treating Postgres schemas like MySQL databases and Postgres databases like MySQL instances.
 
 ### Purpose
 
