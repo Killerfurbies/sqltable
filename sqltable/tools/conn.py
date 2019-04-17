@@ -1,5 +1,8 @@
 import os
+from os.path import abspath, dirname, join
 import subprocess
+
+SQL_DIR = abspath(join(dirname(dirname(__file__)), 'queries'))
 
 
 def pgenv(dbname=None, host=None, port=None, user=None):
@@ -39,3 +42,22 @@ def pgpass(dbname=None, host=None, port=None, user=None):
     creds['dbname'] = entry[2]
     creds['user'] = entry[3]
     return creds
+
+
+def read_sql(file_name):
+    """
+    Reads SQL file in queries dir
+
+    :param file_name: file in sqltable/queries
+    :return: string
+    """
+    path = join(SQL_DIR, file_name)
+    with open(path, 'r') as f:
+        sql = f.read()
+    return sql
+
+
+class Conn:
+    """
+    make it easier to fetch one, fetch all, run a saved query
+    """
