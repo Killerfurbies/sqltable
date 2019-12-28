@@ -2,6 +2,6 @@
 postgres:
   host: localhost
   port: 5432
-  database: default
-  username: corey
+  database: postgres
+  user: corey
   password: postgres

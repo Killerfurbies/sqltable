@@ -1,63 +1,94 @@
 import os
-from os.path import abspath, dirname, join
+from os.path import abspath, dirname, join, expanduser
 import subprocess
 
-SQL_DIR = abspath(join(dirname(dirname(__file__)), 'queries'))
+import psycopg2
+import yaml
+
+from sqltable.tools.exceptions import ConfigError, ArgError
+
+SQL_DIR = abspath(join(dirname(dirname(__file__)), 'sql'))
 
 
-def pgenv(dbname=None, host=None, port=None, user=None):
+def pgenv(**kwargs):
     """
     Look up a pgpass entry for one or more of the input kwargs. Defaults
     to PG environment variables.
     """
-    creds = dict(dbname=dbname or os.getenv("PGDATABASE"),
-                 host=host or os.getenv("PGHOST"),
-                 port=port or os.getenv("PGPORT"),
-                 user=user or os.getenv("PGUSER")
-                 )
-    if not all(creds.values()):
-        raise ValueError("One or more values is None: \n %r" % creds)
+    pg_var_map = {
+        'dbname': "PGDATABASE",
+        'host': "PGHOST",
+        'port': "PGPORT",
+        'user': "PGUSER",
+        'password': 'PGPASSWORD'
+    }
+    creds = {}
+    unexpected_kwargs = kwargs.keys() - set(pg_var_map.keys())
+    if unexpected_kwargs:
+        raise ArgError(fun_name='pgenv', passed_value=unexpected_kwargs, expected_value=pg_var_map.keys())
+
+    for k, v in pg_var_map.items():
+        item = kwargs.get(k) or os.getenv(v)
+        if not item and k != 'password':
+            raise EnvironmentError(f"{v} environment variable not set, with no default passed.")
+        if item:
+            creds[k] = item
     return creds
 
 
-def pgpass(dbname=None, host=None, port=None, user=None):
+def pgpass(*args):
     """
-    Look up a pgpass entry for one or more of the input kwargs.
+    Search ~/.pgpass for an entry.
     """
-    creds = dict(dbname=dbname, host=host, port=port, user=user)
-    lookups = []
-    for val in creds.values():
-        if val:
-            lookups.append("grep %s" % val)
-    cmd = "cat ~/.pgpass | {}".format(" | ".join(lookups))
-    stdout = subprocess.check_output(cmd, shell=True).decode()
-    entries = [x for x in stdout.split() if x]
-    if len(entries) > 1:
-        raise EnvironmentError("Multiple entries found in .pgpass for: {}".format(", ".join(lookups)))
-    if len(entries) == 0:
-        raise EnvironmentError("No entries found in .pgpass for: {}".format(", ".join(lookups)))
+    if not args:
+        raise ArgError(fun_name='pgpass', msg='No arguments supplied')
+    cmd = f"cat ~/.pgpass | grep {' | grep '.join(args)}"
+    entries = [x for x in subprocess.check_output(cmd, shell=True).decode().split('\n') if x]
+    if len(entries) != 1:
+        msg = f"{len(entries)} matches were found for args {args}, when one match was expected."
+        raise ConfigError(msg)
+
     entry = entries[0].split(":")
-    creds['host'] = entry[0]
-    creds['port'] = entry[1]
-    creds['dbname'] = entry[2]
-    creds['user'] = entry[3]
-    return creds
+    return {
+        'host': entry[0],
+        'port': entry[1],
+        'dbname': entry[2],
+        'user': entry[3],
+        'password': entry[4]
+    }
 
 
-def read_sql(file_name):
-    """
-    Reads SQL file in queries dir
-
-    :param file_name: file in sqltable/queries
-    :return: string
-    """
-    path = join(SQL_DIR, file_name)
+def yaml_pass(profile, path=expanduser("~/dbobject.conf"), **kwargs):
     with open(path, 'r') as f:
-        sql = f.read()
-    return sql
+        conf = yaml.full_load(f)
+    try:
+        creds = conf['connections'][profile]
+    except KeyError:
+        raise ConfigError(f"Connection profile '{profile}' not defined in {path}")
+    # allow alternate spelling dbname
+    if 'database' in creds:
+        creds['dbname'] = creds['database']
+        del creds['database']
+    creds.update(kwargs)
+    return pgenv(**creds)
 
 
-class Conn:
-    """
-    make it easier to fetch one, fetch all, run a saved query
-    """
+def connect(*args, **kwargs):
+    creds = {}
+    try:
+        creds = yaml_pass(*args, **kwargs)
+    except (KeyError, ConfigError):
+        pass
+
+    try:
+        creds = pgpass(*args)
+    except ConfigError:
+        pass
+
+    try:
+        creds = pgenv(**kwargs)
+    except EnvironmentError:
+        pass
+
+    if not creds:
+        raise ArgError(fun_name='connect', msg="Could not find credentials")
