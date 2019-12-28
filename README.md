@@ -1,4 +1,4 @@
-# sqltable
+# dboject 
 Tool for querying and ETL
 
 ## Outline

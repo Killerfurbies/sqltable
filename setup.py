@@ -1,8 +1,8 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='sqltable',
-    version='1.0',
+    name='dboject',
+    version='0.1',
     packages=find_packages(),
     url='www.not-a-site.com',
     license='None',
