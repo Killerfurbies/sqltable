@@ -77,12 +77,12 @@ def connect(*args, **kwargs):
     creds = {}
     try:
         creds = yaml_pass(*args, **kwargs)
-    except (KeyError, ConfigError):
+    except (TypeError, ConfigError):
         pass
 
     try:
         creds = pgpass(*args)
-    except ConfigError:
+    except (ArgError, ConfigError):
         pass
 
     try:
@@ -92,3 +92,5 @@ def connect(*args, **kwargs):
 
     if not creds:
         raise ArgError(fun_name='connect', msg="Could not find credentials")
+
+    return psycopg2.connect(**creds)
