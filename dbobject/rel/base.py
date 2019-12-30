@@ -10,24 +10,29 @@ SQL_DIR = join(dirname(__file__), 'sql')
 
 class Relation:
 
-    __metaclass__ = abc.ABCMeta
-    _conn = None
     _metadata = None
+    owner = None
+    
 
     def __init__(self, rel_name, conn):
+        if not isinstance(conn, psycopg2.extensions.connection):
+            raise ArgError('conn', expected_dtype=psycopg2.extensions.connection)
         self.conn = conn
         self.rel_name = rel_name
         self.schema, self.name = rel_name.split(".")
+        self._validate_rel_kind()
 
-    @property
-    def conn(self):
-        return self._conn
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not hasattr(cls, 'rel_kind'):
+            raise NotImplementedError("Class attribute 'rel_kind' must be defined.")
 
-    @conn.setter
-    def conn(self, val):
-        if not isinstance(val, psycopg2.extensions.connection):
-            raise ArgError('conn', expected_dtype=psycopg2.extensions.connection)
-        self._conn = val
+    def _validate_rel_kind(self):
+        with open(join(SQL_DIR, 'get_relation_metadata.sql'), 'r') as f:
+            query = f.read().format(schema=self.schema, name=self.name)
+        with self.conn.cursor() as csr:
+            csr.execute(query)
+            
 
     def metadata(self):
         if self._metadata is None:

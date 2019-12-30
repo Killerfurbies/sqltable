@@ -36,3 +36,11 @@ class ArgError(DboException):
         if msg is not None:
             message += f"\nMessage: {msg}"
         super().__init__(message)
+
+
+class NoSuchRelation(DboException):
+    """
+    Used when a database relation does not exist.
+    """
+    def __init__(self, rel_name):
+        super().__init__(msg=rel_name)
